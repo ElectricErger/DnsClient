@@ -111,7 +111,12 @@ public class DnsClient {
 	}
 	
 	/**
-	 * This function 
+	 * This function receives a valid server and DNS request.
+	 * -It will open a port,
+	 * -Processes the params into the correct type of payload
+	 * -Send the request out
+	 * -Receive a response
+	 * -Output the final results
 	 * @param params
 	 */
 	public static void launchQuery(String[][] params){
