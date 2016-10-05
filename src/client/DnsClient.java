@@ -3,7 +3,7 @@ package client;
 
 public class DnsClient {
 	
-	public static void main(String[] args){
+	public static void main(String[] args) throws Exception{
 		String[][] params = {
 				{"-h", ""},
 				{"-t","5"},
@@ -21,44 +21,65 @@ public class DnsClient {
 	}
 	
 	
-	private static void verifyServer(String server) {
-		//Should have an IP address: 3 decimals, 0-255, broadcasts/multicasts
-		//We will allow for local network DNS and loopback
-		String[] ipSegments = server.split(".");
-		int ip1 = Integer.parseInt(ipSegments[0].substring(1, ipSegments[0].length())) << (8*3);
-		int ip2 = Integer.parseInt(ipSegments[1]) << (8*2);
-		int ip3 = Integer.parseInt(ipSegments[2]) << (8*1);
-		int ip4 = Integer.parseInt(ipSegments[3]) << (8*0);
+	private static void verifyServer(String server) throws Exception {
 		
-		int ipByte = ip1 + ip2 + ip3 + ip4;
+		server = server.substring(1, server.length());
+		int ipBytes = ipAddressToBytes(server);
 		
-		
-		if(ip1 == 0 ){
-			System.out.println("No broadcasts are allowed.");
+		//Not allowed: Reserved IP's, Broadcasts, Multicasts
+		//Everything else is allowed, but will give a note.
+		//Based off of: https://en.wikipedia.org/wiki/Reserved_IP_addresses
+		if(ipBytes >= ipAddressToBytes("0.0.0.0") && ipBytes <= ipAddressToBytes("0.255.255.255") ){
+			System.out.println("Error:No broadcasts are allowed.");
 			System.exit(1);
-		}if(ip1 == 10 ){
+		}if(ipBytes >= ipAddressToBytes("10.0.0.0") && ipBytes < ipAddressToBytes("10.255.255.255")){
 			System.out.println("Note: You are querying within you local network.");
-		}if(ip1 == 100 && ip2 >= 64 && ip2 < 128 ){
+		}if(ipBytes >= ipAddressToBytes("100.64.0.0") && ipBytes < ipAddressToBytes("100.127.255.255")){
 			System.out.println("Note: You are talking direccctly to your ISP.");
-		}if(ip1 == 127 ){
+		}if(ipBytes >= ipAddressToBytes("127.0.0.0") && ipBytes < ipAddressToBytes("127.255.255.255")){
 			System.out.println("Note: You are querying your local DNS.");
-		}if(ip1 == 169 && ip2 ==  ){
-			System.out.println("Note: You are querying your local DNS.");
-		}if(ip1 == 127 ){
-			System.out.println("Note: You are querying your local DNS.");
-		}if(ip1 == 127 ){
-			System.out.println("Note: You are querying your local DNS.");
-		}if(ip1 == 127 ){
-			System.out.println("Note: You are querying your local DNS.");
-		}if(ip1 == 127 ){
-			System.out.println("Note: You are querying your local DNS.");
-		}if(ip1 == 127 ){
-			System.out.println("Note: You are querying your local DNS.");
-		}if(ip1 == 0 ){
-			System.out.println("IP Addresses can't start with 0 in the first octet.");
+		}if(ipBytes >= ipAddressToBytes("169.254.0.0") && ipBytes < ipAddressToBytes("169.254.255.255")){
+			System.out.println("Note: This IP is used for link-local addresses. Something may be wrong with your DHCP server.");
+		}if(ipBytes >= ipAddressToBytes("172.16.0.0") && ipBytes < ipAddressToBytes("172.31.255.255")){
+			System.out.println("Note: You are querying within your local network.");
+		}if(ipBytes >= ipAddressToBytes("192.0.0.0") && ipBytes < ipAddressToBytes("192.0.0.255")){
+			System.out.println("Note: You are querying within your local network (IANA special addresses).");
+		}if(ipBytes >= ipAddressToBytes("192.0.2.0") && ipBytes < ipAddressToBytes("192.0.2.255")){
+			System.out.println("Note: You are querying within TEST-NET, this IP should not be used publicly.");
+		}if(ipBytes >= ipAddressToBytes("192.88.99.0") && ipBytes < ipAddressToBytes("192.88.99.255")){
+			System.out.println("Note: This is an anycast relay between IPv6 and IPv4.");
+		}if(ipBytes >= ipAddressToBytes("192.168.0.0") && ipBytes < ipAddressToBytes("192.168.255.255")){
+			System.out.println("Note: You are querying within your local network.");
+		}if(ipBytes >= ipAddressToBytes("198.18.0.0") && ipBytes < ipAddressToBytes("1928.19.255.255")){
+			System.out.println("Note: This IP address is used for internetwork communication, you are querying another subnet.");
+		}if(ipBytes >= ipAddressToBytes("198.51.100.0") && ipBytes < ipAddressToBytes("198.51.100.255")){
+			System.out.println("Note: You are querying within TEST-NET2, this IP should not be used publically.");
+		}if(ipBytes >= ipAddressToBytes("203.0.113.0") && ipBytes < ipAddressToBytes("203.0.113.255")){
+			System.out.println("Note: You are querying within TEST-NET3, this IP should not be used publically.");
+		}if(ipBytes >= ipAddressToBytes("224.0.0.0") && ipBytes < ipAddressToBytes("239.255.255.255")){
+			System.out.println("Error: No multicasts are allowed.");
 			System.exit(1);
+		}if(ipBytes >= ipAddressToBytes("240.0.0.0") && ipBytes < ipAddressToBytes("255.255.255.254")){
+			System.out.println("Error: These IP addresses are reserved, and not allowed for usage.");
+		}if(ipBytes == ipAddressToBytes("255.255.255.255")){
+			System.out.println("Error: Broadcasts are not allowed.");
 		}
+		
 	}
+
+	private static int ipAddressToBytes(String ipAddr) throws Exception {
+		String[] ipSegments = ipAddr.split("\\.");
+		if(ipSegments.length < 4){
+			throw new Exception("IP address is not valid. Insufficient digits");
+		}
+		int ip1 = Integer.parseInt(ipSegments[0]);
+		int ip2 = Integer.parseInt(ipSegments[1]);
+		int ip3 = Integer.parseInt(ipSegments[2]);
+		int ip4 = Integer.parseInt(ipSegments[3]);
+		
+		return ip1<<(8*3) + ip2<<(8*2) + ip3<<(8*1) + ip4<<(8*0);
+	}
+
 
 	private static void verifyName(String name) {
 		//Should have 2+ domains: 63 octals max each, 
