@@ -1,5 +1,9 @@
 package client;
 
+import java.util.Dictionary;
+import java.util.HashMap;
+import java.util.Map;
+
 
 public class DnsClient {
 	
@@ -13,13 +17,50 @@ public class DnsClient {
 				{"@server",""},
 				{"name",""}
 		};
-		parseParams(args, params);
-		verifyServer(params[5][1]);
-		verifyName(params[6][1]);
-		//Now params are in array, launch query
-		launchQuery(params);
+		parseParams(args, params); //Handles help and populates the params array
+		launchQuery(verifyParams(params)); //Ensures the array has valid values, and performs minor parsing
 	}
 	
+	@SuppressWarnings("rawtypes")
+	private static Map<String, Comparable> verifyParams(String[][] params) throws Exception{
+		//Perhaps a better data type fore easier processing...
+		Map<String, Comparable> output = new HashMap<String, Comparable>();
+		output.put("-t", getInt(params[1][1]));
+		output.put("-r", getInt(params[2][1]));
+		output.put("-p", getInt(params[3][1]));
+		output.put("-mx", getBoolean(params[4][1]));
+		verifyServer(params[5][1]);
+		verifyName(params[6][1]);
+		output.put("@server", params[5][1]);
+		output.put("name", params[6][1]);
+		
+		return output;
+	}
+	
+	private static int getInt(String str){
+		try{
+			return Integer.parseInt(str);
+		}
+		catch(NumberFormatException e){
+			if(str.equals(""))
+				return -1;
+			System.out.println("Error: Your input for a parameter is not an integer. Ensure you put a space between your previous flag, and your nextr one.");
+			System.exit(1); 
+		}
+		return -1; //It's actually impossible to reach here, but the compiler complained
+		
+	}
+
+	private static boolean getBoolean(String str){
+		try{
+			return Boolean.parseBoolean(str);
+		}
+		catch(NumberFormatException e){
+			if(str.equals(""))
+				return true;
+		}
+		return false;
+	}
 	
 	private static void verifyServer(String server) throws Exception {
 		
@@ -80,9 +121,16 @@ public class DnsClient {
 		return ip1<<(8*3) + ip2<<(8*2) + ip3<<(8*1) + ip4<<(8*0);
 	}
 
-
 	private static void verifyName(String name) {
-		//Should have 2+ domains: 63 octals max each, 
+		//Should have 2+ labels: 63 bytes max each,
+		String[] domains = name.split("\\.");
+		for(String domain:domains){
+			if(domain.length()>63){ //char=1 byte, so 63 chars is the max.
+				System.out.println("Your domain is illegal according to RFC 1034.");
+				System.exit(1);
+			}
+		}
+		//If all labels are less than 63 bytes we are good to go.
 	}
 
 	private static void parseParams(String[] raw, String[][] params){
@@ -131,6 +179,8 @@ public class DnsClient {
 		}
 	}
 	
+	
+	
 	/**
 	 * This function receives a valid server and DNS request.
 	 * -It will open a port,
@@ -140,7 +190,21 @@ public class DnsClient {
 	 * -Output the final results
 	 * @param params
 	 */
-	public static void launchQuery(String[][] params){
+	@SuppressWarnings("rawtypes")
+	public static void launchQuery(Map<String, Comparable> params){
+		createDatagram();
+		//Open port
+		//Send datagram
+		//Wait -t seconds
+		//retry -r times if failed
+		printResults();
+	}
+	
+	private static void createDatagram(){
+		
+	}
+	
+	private static void printResults(){
 		
 	}
 }
