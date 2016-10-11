@@ -1,8 +1,10 @@
 package client;
 
+import java.net.DatagramPacket;
 import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 
 public class DnsClient {
@@ -13,12 +15,57 @@ public class DnsClient {
 				{"-t","5"},
 				{"-r","3"},
 				{"-p","53"},
-				{"-mx/-ns","T"}, //It's either mx (T) or ns (F)
+				{"queryType","T"}, //A, mx, ns
 				{"@server",""},
 				{"name",""}
 		};
 		parseParams(args, params); //Handles help and populates the params array
 		launchQuery(verifyParams(params)); //Ensures the array has valid values, and performs minor parsing
+	}
+
+	private static void parseParams(String[] raw, String[][] params){
+		//Identify flags
+		for(int i=0; i<raw.length; i++){
+			//Flag or Parameter
+			if(raw[i].charAt(0)=='-'){
+				switch(raw[i].charAt(1)){
+					case 'h':
+						params[0][1] = "T";
+						break;
+					case 't':
+						params[1][1] = raw[++i];
+						break;
+					case 'r':
+						params[2][1] = raw[++i];
+						break;
+					case 'p':
+						params[3][1] = raw[++i];
+						break;
+					case 'm':
+						params[4][1] = "T";
+						break;
+					case 'n':
+						params[4][1] = "F";
+						break;
+				}
+			} else {
+				params[5][1] = raw[i++];
+				params[6][1] = raw[i++];
+			}
+		}
+		if(raw.length==0 || params[0][1].equals("T"))
+			printHelp();
+	}
+	
+	private static void printHelp(){
+			System.exit(0);
+		//Print error
+		if(raw.length < 2){
+			System.out.println("Insufficient parameters. "
+					+ "Expected: 2 parameters, @server and name. Received: "+params.length
+					+ "\n Use -h or --help for more information");
+			System.exit(1);
+		}
 	}
 	
 	@SuppressWarnings("rawtypes")
@@ -28,7 +75,7 @@ public class DnsClient {
 		output.put("-t", getInt(params[1][1]));
 		output.put("-r", getInt(params[2][1]));
 		output.put("-p", getInt(params[3][1]));
-		output.put("-mx", getBoolean(params[4][1]));
+		output.put("queryType", getBoolean(params[4][1]));
 		verifyServer(params[5][1]);
 		verifyName(params[6][1]);
 		output.put("@server", params[5][1]);
@@ -133,54 +180,11 @@ public class DnsClient {
 		//If all labels are less than 63 bytes we are good to go.
 	}
 
-	private static void parseParams(String[] raw, String[][] params){
-		//Identify flags
-		for(int i=0; i<raw.length; i++){
-			//Flag or Parameter
-			if(raw[i].charAt(0)=='-'){
-				switch(raw[i].charAt(1)){
-					case 'h':
-						params[0][1] = "T";
-						break;
-					case 't':
-						params[1][1] = raw[++i];
-						break;
-					case 'r':
-						params[2][1] = raw[++i];
-						break;
-					case 'p':
-						params[3][1] = raw[++i];
-						break;
-					case 'm':
-						params[4][1] = "T";
-						break;
-					case 'n':
-						params[4][1] = "F";
-						break;
-				}
-			} else {
-				params[5][1] = raw[i++];
-				params[6][1] = raw[i++];
-			}
-		}
-		
-		
-		//Print help
-		if(raw.length==0 || params[0][1].equals("T")){
-			
-			System.exit(0);
-		}
-		//Print error
-		if(raw.length < 2){
-			System.out.println("Insufficient parameters. "
-					+ "Expected: 2 parameters, @server and name. Received: "+params.length
-					+ "\n Use -h or --help for more information");
-			System.exit(1);
-		}
-	}
 	
 	
-	
+	// byte a = 'a';
+	//byte b = 0x7f;
+	//byte c = 127;
 	/**
 	 * This function receives a valid server and DNS request.
 	 * -It will open a port,
@@ -192,7 +196,7 @@ public class DnsClient {
 	 */
 	@SuppressWarnings("rawtypes")
 	public static void launchQuery(Map<String, Comparable> params){
-		createDatagram();
+		createDatagram(params);
 		//Open port
 		//Send datagram
 		//Wait -t seconds
@@ -200,9 +204,81 @@ public class DnsClient {
 		printResults();
 	}
 	
-	private static void createDatagram(){
+	private static void createDatagram(Map<String, Comparable> params){
+		makeHeader();
+		makeQuestion((String) params.get("name"), (String) params.get("queryType"));
+		makeAnswer();
+		makeAuthority();
+		makeAdditional();
+		
+		DatagramPacket packet; //Return this datagram
+	}
+	private static void makeHeader(){
+		//I will use short for 16 bit values.
+		//Name | size (bits) | value 
+		//ID | 16 | Random
+		Random ran = new Random();
+		short id = (short) ran.nextInt(65536);
+		
+		//QR | 1 | 0
+		//OP | 4 | 0
+		//AA | 1 | ?
+		//TC | 1 | ?
+		//RD | 1 | 1
+		//RA | 1 | ?
+		//Z  | 3 | 0
+		//RC | 4 | 0
+		
+		//QR(1)OP(4)AA(1)TC(1)RD(1)RA(1)Z(3)RCode(4)
+		short flags = 0b00001000;
+		
+		//QD | 16 | 1
+		short QDCount = 0x0001;
+		
+		//AN | 16 | 0
+		short ANCount = 0x0000;
+		
+		//NS | 16 | ?
+		short NSCount = 0x0000;
+		
+		//AR | 16 | ?
+		short ARCount = 0x0000;
 		
 	}
+	private static void makeQuestion(String query, String queryType){
+		//QName is dynamic. It is organized by:
+		//Length, char1, char2, ..., Length, char1, char2, ....
+		//It is terminated with a '0', and divided by '.'
+		byte[] QName = new byte[query.length()+2];
+		String[] label = query.split("\\.");
+		int i = 0; //Overall position (labelData)
+		for(String l : label){
+			QName[i] = (byte) l.length();
+			i++;
+			for(int j=0; j<l.length(); j++){ //Relative position (label)
+				QName[i] = (byte) l.charAt(j);
+				i++;
+			}
+		}
+		//Postpend a 0
+		QName[i] = 0x0000;
+		
+		//QT | 16 | A 0x0001, NS 0x0002, MX 0x000f
+		short QType = 0;
+		if(queryType == "A")
+			QType = 0x0001;
+		else if(queryType.equals("NS"))
+			QType = 0x0002;
+		else
+			QType = 0x000f;
+		
+		//QC | 16 | 0x0001
+		short QClass = 0x0001;
+	}
+	private static void makeAnswer(){} //Unused for query
+	private static void makeAuthority(){} //Unused for query
+	private static void makeAdditional(){} //Unused for query
+	
 	
 	private static void printResults(){
 		
