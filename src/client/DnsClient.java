@@ -1,9 +1,11 @@
 package client;
 
 import java.io.IOException;
+import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.Map;
 
@@ -74,7 +76,14 @@ public class DnsClient {
 		
 		return ip1<<(8*3) + ip2<<(8*2) + ip3<<(8*1) + ip4<<(8*0);
 	}
-
+	public static byte[] intTo4ByteArray(int i){
+		return new byte[]{
+				(byte) (i >> 24),
+				(byte) (i >> 16),
+				(byte) (i >> 8),
+				(byte) (i)
+		};
+	}
 
 	
 
@@ -87,25 +96,80 @@ public class DnsClient {
 	 * -Output the final results
 	 * @param params
 	 */
+	
+	//This method is really big. Perhaps making a FSM would be better.
 	@SuppressWarnings("rawtypes")
 	public static void launchQuery(Map<String, Comparable> params){
+		//Get raw data in easy forms
 		short queryType = ParameterScanner.getQueryType(params);
-		//Make datagram
-		Datagram d = new Datagram((String) params.get("request"), queryType);
 		int ipInBits = (int) params.get(ParameterScanner.SERVER);
 		int port = (int) params.get(ParameterScanner.PORT);
+		
+		//Get network objects
+		DatagramSocket socket = null;
 		InetAddress addr;
+		DatagramPacket toServer;
+		
+		byte[] response = new byte[100];
+		DatagramPacket fromServer = new DatagramPacket(response, response.length);
+		
+		//Make datagram
+		Datagram d = new Datagram((String) params.get(ParameterScanner.REQUEST), queryType);
+
+		//Prep for transition states
+		boolean responseReceived = false;
+		long startTime = System.currentTimeMillis();
+		long stopTime = System.currentTimeMillis();
 		
 		//Open port
-		DatagramSocket socket = null;
 		try {
 			socket = new DatagramSocket();
-			addr = InetAddress.getByAddress(intToByteArray(ipInBits));
+			byte[] ipAddr = intTo4ByteArray(ipInBits);
+			addr = InetAddress.getByAddress(ipAddr);
+			toServer = d.compileDatagram(addr, port);
 			
-			for(int retries = (int) params.get(ParameterScanner.RETRY); retries>0; retries--){
-				socket.send(d.compileDatagram(addr, port)); //DNS header doesn't matter. We want any response we sent
+			
+			//STANDARD OUTPUT
+			String rT = "A";
+			switch(d.getQueryType()){
+			case d.MX:
+				rT = "MX";
+				break;
+			case d.NS:
+				rT = "NS";
+				break;
+			default:
+				rT = "A";
+			}
+			
+			System.out.println("DnsClient sending request for "+ params.get(ParameterScanner.REQUEST));
+			System.out.println(String.format("Server: %i.%i.%i.%i",ipAddr[0],ipAddr[1],ipAddr[2],ipAddr[3]));
+			System.out.println("Request type: " + rT);
+			
+			
+			startTime = System.currentTimeMillis();
+			for(int retries = 0; retries<(int) params.get(ParameterScanner.RETRY); retries++){ //Retry
+				socket.send(toServer); //DNS header doesn't matter. We want any response we sent
 				socket.setSoTimeout((int) params.get(ParameterScanner.TIMEOUT)); //Timeout functionality
-				//TODO while !TimeoutError scan for incomming package
+				
+				
+				//Wait till timeout or received
+				while(true){
+					try{
+						socket.receive(fromServer);
+						
+						//STANDARD OUTPUT
+						System.out.println(String.format("Response received after %i seconds (%i retries)"
+								,(System.currentTimeMillis()-startTime)/1000, retries));
+						
+						retries = (int) params.get(ParameterScanner.RETRY);
+						responseReceived = true;
+						break;
+					}catch(SocketTimeoutException e){
+						System.out.println("DNS request has timed out."); //Shouldn't produce an STDOUT?
+						break;
+					}
+				}				
 			}
 		} catch (SocketException e) {
 			System.out.println("No port was available to send out traffic. Try running the program as root.");
@@ -119,22 +183,13 @@ public class DnsClient {
 		}
 		
 		
-		//Wait -t seconds
-		//retry -r times if failed
-		
-		
-		printResults();
+		if(responseReceived)
+			Response.printResults(fromServer);
+		else
+			Response.noResponseReceived(
+					intTo4ByteArray(ipInBits),
+					(int) params.get(ParameterScanner.RETRY),
+					(int) params.get(ParameterScanner.TIMEOUT));
 	}
-	private static byte[] intToByteArray(int i){
-		return new byte[]{
-				(byte) (i >> 24),
-				(byte) (i >> 16),
-				(byte) (i >> 8),
-				(byte) (i)
-		};
-	}
-	
-	private static void printResults(){
-		
-	}
+
 }
