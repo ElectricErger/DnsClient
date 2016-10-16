@@ -10,62 +10,33 @@ import java.util.Random;
 public class DnsClient {
 	
 	public static void main(String[] args) throws Exception{
-		String[][] params = {
-				{"-h", ""},
-				{"-t","5"},
-				{"-r","3"},
-				{"-p","53"},
-				{"queryType","T"}, //A, mx, ns
-				{"@server",""},
-				{"name",""}
-		};
-		parseParams(args, params); //Handles help and populates the params array
-		launchQuery(verifyParams(params)); //Ensures the array has valid values, and performs minor parsing
+		@SuppressWarnings("rawtypes")
+		Map<String, Comparable> parameters;
+		try{
+			parameters = ParameterScanner.parseParams(args); //Handles help and populates the params array
+			parameters = ParameterScanner.verifyParams(parameters);
+		}catch(Exception e){ //Your # of parameters are wrong
+			printError(e);
+			System.exit(1);
+		}catch(NumberFormatException e1){//The parameters are illegal
+			
+		}
+		
+		launchQuery(parameters);
 	}
 
-	private static void parseParams(String[] raw, String[][] params){
-		//Identify flags
-		for(int i=0; i<raw.length; i++){
-			//Flag or Parameter
-			if(raw[i].charAt(0)=='-'){
-				switch(raw[i].charAt(1)){
-					case 'h':
-						params[0][1] = "T";
-						break;
-					case 't':
-						params[1][1] = raw[++i];
-						break;
-					case 'r':
-						params[2][1] = raw[++i];
-						break;
-					case 'p':
-						params[3][1] = raw[++i];
-						break;
-					case 'm':
-						params[4][1] = "T";
-						break;
-					case 'n':
-						params[4][1] = "F";
-						break;
-				}
-			} else {
-				params[5][1] = raw[i++];
-				params[6][1] = raw[i++];
-			}
-		}
-		if(raw.length==0 || params[0][1].equals("T"))
-			printHelp();
+	
+	private static void printError(Exception len){
+		System.out.println("Insufficient parameters. "
+			+ "Expected: 2 parameters, @server and name. Received: "+len
+			+ "\n Use -h or --help for more information");
 	}
 	
 	private static void printHelp(){
-			System.exit(0);
-		//Print error
-		if(raw.length < 2){
-			System.out.println("Insufficient parameters. "
-					+ "Expected: 2 parameters, @server and name. Received: "+params.length
-					+ "\n Use -h or --help for more information");
-			System.exit(1);
-		}
+		System.out.println("Insufficient parameters. "
+			+ "Expected: 2 parameters, @server and name. Received: "
+			+ "\n Use -h or --help for more information");
+		System.exit(1);
 	}
 	
 	@SuppressWarnings("rawtypes")
@@ -196,7 +167,7 @@ public class DnsClient {
 	 */
 	@SuppressWarnings("rawtypes")
 	public static void launchQuery(Map<String, Comparable> params){
-		createDatagram(params);
+		byte[] datagram = createDatagram(params);
 		//Open port
 		//Send datagram
 		//Wait -t seconds
@@ -204,7 +175,7 @@ public class DnsClient {
 		printResults();
 	}
 	
-	private static void createDatagram(Map<String, Comparable> params){
+	private static byte[] createDatagram(Map<String, Comparable> params){
 		makeHeader();
 		makeQuestion((String) params.get("name"), (String) params.get("queryType"));
 		makeAnswer();
@@ -212,6 +183,7 @@ public class DnsClient {
 		makeAdditional();
 		
 		DatagramPacket packet; //Return this datagram
+		return new byte[0];
 	}
 	private static void makeHeader(){
 		//I will use short for 16 bit values.
