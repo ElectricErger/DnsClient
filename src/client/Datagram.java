@@ -33,7 +33,6 @@ public class Datagram {
 		if(totalBits%8 != 0){ size++; } //To avoid cutting off the last one
 		return new byte[size];
 	}
-
 	//First 12 bytes go here
 	private void makeHeader(){
 		Random ran = new Random();
@@ -113,6 +112,23 @@ public class Datagram {
 	public DatagramPacket compileDatagram(InetAddress a, int port){
 		return new DatagramPacket(data, data.length, a, port);
 	}
+	public byte[] getRawData(){ return data; }
 	public short getQueryType(){ return queryType; }
 	public void setQueryType(short s){ queryType = s; }
+
+	//Length in bytes
+	public static int headerLength(){ return 12; }
+	public static int questionLength(byte[] dnsMessage){
+		//QName ends when you get a 0 at the start of a label
+		
+		int location = headerLength()-1;
+		//add prelabel int, until 0
+		while(dnsMessage[location]!=(byte)'0'){
+			char num = (char) dnsMessage[location];
+			location=location + Character.getNumericValue(num) + 1;
+		}
+		location= location + 4; //4 bytes for QT and QC
+		
+		return location-headerLength()-1;
+	}
 }

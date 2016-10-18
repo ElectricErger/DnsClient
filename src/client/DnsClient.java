@@ -108,11 +108,10 @@ public class DnsClient {
 		//Get network objects
 		DatagramSocket socket = null;
 		InetAddress addr;
-		DatagramPacket toServer;
-		
+		DatagramPacket toServer = null;
+		//For the return object
 		byte[] response = new byte[100];
 		DatagramPacket fromServer = new DatagramPacket(response, response.length);
-		
 		//Make datagram
 		Datagram d = new Datagram((String) params.get(ParameterScanner.REQUEST), queryType);
 
@@ -184,7 +183,7 @@ public class DnsClient {
 		
 		
 		if(responseReceived)
-			Response.printResults(fromServer);
+			Response.printResults(toServer, fromServer);
 		else
 			Response.noResponseReceived(
 					intTo4ByteArray(ipInBits),
