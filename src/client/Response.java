@@ -20,7 +20,6 @@ public class Response {
 	private static void analyseResponses(byte[] message) {
 		//for(int i=0; i<message.length; i++) System.out.println("Byte "+i+ " is: "+(char)message[i]);
 		
-		short type = Datagram.getQT(message);
 		int typePosition = afterAnswerName(message);
 		//Probably should have made an int to short function
 		short typeAns = (short) ((message[typePosition++]<<8)+ message[typePosition++]);
@@ -37,20 +36,24 @@ public class Response {
 		}
 		
 		boolean authoratative = (message[2]&0b00000100) == 0b00000100;
+
 		
-		switch(type){
+		switch(typeAns){
 		case Datagram.A:
 			ARecordResults(rData, TTL, authoratative);
 			break;
 		case Datagram.MX:
-			MXRecordResults(rData, TTL, authoratative);
+			MXRecordResults(rData, TTL, authoratative, message);
 			break;
 		case Datagram.NS:
-			NSRecordResults(rData, TTL, authoratative);
+			NSRecordResults(rData, TTL, authoratative, message);
 			break;
 		case 0x0005: //Cname
 			CNAMEResults(rData, TTL, authoratative);
 			break;
+		default:
+			System.out.println("ERROR\tCould not process record type: "+typeAns);
+			break;	
 		}
 		
 	}
@@ -64,24 +67,27 @@ public class Response {
 		else
 			System.out.println("nonauth");		
 	}
-	private static void MXRecordResults(byte[] message, long cacheTime, boolean auth) {
+	private static void MXRecordResults(byte[] message, long cacheTime, boolean auth, byte[]rawResponse) {
+		//for(byte i: message) System.out.println(Integer.toBinaryString(i&0xFF));
+		
 		//Pref | 16 | want low
 		//Exch | n  | name
 		int pref = (int)((message[0]<<8)+(message[1]));
 		
-		//WHAT? TODO
+		String qname = qname(2, message, rawResponse);
+		/*
 		String alias = "";
 		int labelLen = message[2];
-		for(int i=2; i<message.length; i++){
+		for(int i=3; i<message.length; i++){
 			if(labelLen!=0){
 				alias+=(char)message[i];
 				labelLen--;
 			} else{
 				labelLen = message[i];
 			}
-		}
+		}*/
 		
-		System.out.print(String.format("MX\t%s\t%d\t%d\t", alias, pref, cacheTime));
+		System.out.print(String.format("MX\t%s\t%d\t%d\t", qname, pref, cacheTime));
 		
 		
 		if(auth)
@@ -89,22 +95,21 @@ public class Response {
 		else
 			System.out.println("nonauth");	
 	}
-	private static void NSRecordResults(byte[] message, long cacheTime, boolean auth) {
-		String alias = "";
+	private static void NSRecordResults(byte[] message, long cacheTime, boolean auth, byte[]rawResponse) {
+		String alias = qname(0, message, rawResponse);
 		
-		for(int i = 1; i<5; i++){System.out.print((char) message[i]);}
-		
-		
+		/*
 		int labelLen = message[0];
-		for(int i=0; i<message.length; i++){
+		for(int i=1; i<message.length; i++){
 			if(labelLen!=0){
+				System.out.println(Integer.toBinaryString(message[i]&0xFF));
 				alias+=(char)message[i];
 				labelLen--;
 			} else{
 				labelLen = message[i];
 			}
 		}
-		
+		*/
 		
 		System.out.print(String.format(
 				"NS\t%s\t%d\t", alias, cacheTime));
@@ -113,6 +118,57 @@ public class Response {
 		else
 			System.out.println("nonauth");
 	}
+	private static String qname(int start, byte[] message, byte[] rawResponse) {
+		int absPosition = start;
+		
+		String fqdn = "";
+		
+		//Processes all labels till done
+		while(message[absPosition] != 0){
+			//Processes a single label
+			int labelLength = message[absPosition];
+			if((labelLength&0xc0) == 0xc0){
+				short pointerTo = (short) ((labelLength<<8)&0x3FFF);
+				pointerTo= (short) (pointerTo + message[++absPosition]&0xFF);
+				
+				fqdn+=qNameByPointer(pointerTo, rawResponse);
+				absPosition++;
+				break; //Not sure if good idea
+			}else{
+				fqdn+=qNameByLabels(absPosition, message);
+				absPosition+=labelLength+1;
+			}
+			fqdn+=".";
+		}
+		return fqdn.substring(0, fqdn.length()-1);
+	}
+	private static String qNameByLabels(int position, byte[] message){
+		int labelLen = message[position++]+position;
+		String response = "";
+		for(int i = position; i<labelLen; i++){
+			//System.out.println(String.format("i:%d\tlabelLen:%d\t", i, labelLen));
+			response+=(char) message[i];
+			//System.out.println(response);
+		}
+		return response;
+	}
+	private static String qNameByPointer(short pointer, byte[] message){
+		String response = "";
+		
+		int labelLen = message[pointer]+pointer;
+		pointer++;
+		while(labelLen!=0){
+			for(int i=pointer; i<labelLen+1; i++){
+				response+=(char) message[i];
+				pointer++;
+			}
+			labelLen = message[pointer++];
+			response+=".";
+		}
+		
+		return response;
+	}
+	
 	private static void CNAMEResults(byte[] message, long cacheTime, boolean auth){
 		String alias = "";
 		

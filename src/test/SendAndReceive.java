@@ -45,10 +45,10 @@ public class SendAndReceive {
 		Map<String, Comparable> params = new HashMap<String, Comparable>();
 		params.put(ParameterScanner.PORT, ParameterScanner.DEFAULT_PORT);
 		params.put(ParameterScanner.RETRY, ParameterScanner.DEFAULT_RETRY);
-		params.put(ParameterScanner.TIMEOUT, ParameterScanner.DEFAULT_TIMEOUT);
+		params.put(ParameterScanner.TIMEOUT, 100);
 		params.put(ParameterScanner.MX, true);
 		params.put(ParameterScanner.SERVER, "@8.8.8.8");
-		params.put(ParameterScanner.REQUEST, "www.mcgill.ca");
+		params.put(ParameterScanner.REQUEST, "slawlor.com");
 		
 		DnsClient.launchQuery(params);
 	}
@@ -60,7 +60,7 @@ public class SendAndReceive {
 		params.put(ParameterScanner.TIMEOUT, 100);
 		params.put(ParameterScanner.NS, true);
 		params.put(ParameterScanner.SERVER, "@8.8.8.8");
-		params.put(ParameterScanner.REQUEST, "www.mcgill.ca");
+		params.put(ParameterScanner.REQUEST, "slawlor.com");
 		
 		DnsClient.launchQuery(params);
 	}
