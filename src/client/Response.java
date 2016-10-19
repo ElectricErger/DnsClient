@@ -18,32 +18,37 @@ public class Response {
 		
 	}
 	private static void analyseResponses(byte[] message) {
-		// TODO Read through data and find the response data
-		short type = getRecordType(message);
+		short type = Datagram.getQT(message);
+		int typePosition = afterAnswerName(message);
+		//Probably should have made an int to short function
+		short typeAns = (short) ((message[typePosition++]<<8)+ message[typePosition++]);
+		short classData = (short) ((message[typePosition++]<<8)+ message[typePosition++]);
+		typePosition+=4; //Skip TTL
+		int rLength = (int) ((message[typePosition++]<<8)+ message[typePosition++]);
+		byte[] rData = new byte[rLength];
+		
+		int rDataPointer = 0;
+		for(int i = typePosition; i<(typePosition+rLength); i++){
+			rData[rDataPointer++] = message[i];
+		}
 		
 		switch(type){
 		case Datagram.A:
-			ARecordResults(message);
+			ARecordResults(rData);
 			break;
 		case Datagram.MX:
-			MXRecordResults(message);
+			MXRecordResults(rData);
 			break;
 		case Datagram.NS:
-			NSRecordResults(message);
+			NSRecordResults(rData);
 			break;
 		}
 		
 	}
-	private static short getRecordType(byte[] message) {
-		int location = Datagram.headerLength()-1; //assumes base 1 array
-		location=location + Datagram.questionLength(message);
-		
-		location = location - 4; //-4 to bring us right before QT
-		
-		return (short) (message[location+1]<<4 +  message[location+2]);
-	}	
 	private static void ARecordResults(byte[] message) {
 		// TODO Auto-generated method stub
+		
+		
 		
 	}
 	private static void MXRecordResults(byte[] message) {
@@ -52,11 +57,42 @@ public class Response {
 	private static void NSRecordResults(byte[] message) {
 		// TODO Auto-generated method stub
 	}
+	
+	//Processing received
+	private static int getHeaderEnd(){
+		return Datagram.headerLength();
+	}
+	private static int getQuestionEnd(byte[] dnsMessage){
+		return Datagram.questionLength(dnsMessage);
+	}
+	private static int getAnswerEnd(byte[] dnsMessage){
+		/* Name | n
+		 * Type | 16b
+		 * Class| 16b
+		 * TTL  | 32b
+		 * RDLen| 16b
+		 * RDAns| m
+		 */
+		
+		int startingPoint = getQuestionEnd(dnsMessage);
+		
+		
+		return Datagram.questionLength(dnsMessage);
+	}
+	private static int afterAnswerName(byte[] dnsMessage){
+		int startOfAnswer = getHeaderEnd() + getQuestionEnd(dnsMessage) +1;
+		
+		if(dnsMessage[startOfAnswer] >= 0xc0){ //If we start with 0b11 then it's a pointer
+			return startOfAnswer+2;
+		}else{
+			return startOfAnswer+Datagram.questionLength(dnsMessage);
+		}
+	}
+	
 	//STANDARD OUTPUT
 	private static void printNoResults(){
 		System.out.println("NOTFOUND");
 	}
-	
 	public static void noResponseReceived(byte[] ip, int retry, int timeout){
 		System.out.println(String.format(
 				"This client was unable to receive a response from %i.%i.%i.%i after %i attempts\n"

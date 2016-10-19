@@ -25,13 +25,10 @@ public class Datagram {
 	
 	//Setup functions//
 	private byte[] guessDatagramSize(String query) {
-		//Header = 16*6
-		//Question = querySize+2 + 16*2
-		//Total = (16*8+qS.length+2)/8
-		int totalBits = 16*8+query.length()+2;
-		int size = totalBits/8;
-		if(totalBits%8 != 0){ size++; } //To avoid cutting off the last one
-		return new byte[size];
+		//Header = 16*6 bits
+		//Question = querySize+2 bytes + 16*2 bits
+		//Total = (16*8/8)+(qS.length+2)
+		return new byte[18+query.length()];
 	}
 	//First 12 bytes go here
 	private void makeHeader(){
@@ -77,10 +74,7 @@ public class Datagram {
 		final int START_POSITION = 12;
 		int position = START_POSITION; //Always start at byte 12
 
-		//QName is dynamic. It is organized by:
-			//Length, char1, char2, ..., Length, char1, char2, ....
-			//It is terminated with a '0', and divided by '.'
-		
+		//Label to byte array
 		String[] label = query.split("\\.");
 		for(String l : label){
 			data[position] = (byte) l.length();
@@ -95,10 +89,9 @@ public class Datagram {
 		
 		//QueryType (8)(8)
 		short tempQT = queryType;
-		
-		data[position] = (byte) (queryType & 0xff);
+		data[position] = (byte) ((tempQT >> 8) & 0xff); //Take the left 8 bits
 		position++;
-		data[position] = (byte) ((tempQT >> 8) & 0xff);
+		data[position] = (byte) (queryType & 0xff); //Take the right 8 bits
 		position++;
 		
 		//QC | 16 | 0x0001
@@ -121,14 +114,19 @@ public class Datagram {
 	public static int questionLength(byte[] dnsMessage){
 		//QName ends when you get a 0 at the start of a label
 		
-		int location = headerLength()-1;
+		int location = headerLength();
 		//add prelabel int, until 0
-		while(dnsMessage[location]!=(byte)'0'){
-			char num = (char) dnsMessage[location];
-			location=location + Character.getNumericValue(num) + 1;
+		while(dnsMessage[location]!=0){
+			location=location + dnsMessage[location] + 1;
 		}
-		location= location + 4; //4 bytes for QT and QC
+		location = location + 4; //4 bytes for QT and QC
 		
-		return location-headerLength()-1;
+		return location-headerLength(); //All the way to the last bit
+	}
+	public static short getQT(byte[] dnsMessage){
+		int location = headerLength()+questionLength(dnsMessage);
+		short qt = (short) ((dnsMessage[location-3]<<4) + dnsMessage[location-2]);
+		
+		return qt;
 	}
 }

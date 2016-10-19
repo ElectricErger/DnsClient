@@ -131,10 +131,10 @@ public class DnsClient {
 			//STANDARD OUTPUT
 			String rT = "A";
 			switch(d.getQueryType()){
-			case d.MX:
+			case Datagram.MX:
 				rT = "MX";
 				break;
-			case d.NS:
+			case Datagram.NS:
 				rT = "NS";
 				break;
 			default:
