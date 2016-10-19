@@ -18,6 +18,8 @@ public class Response {
 		
 	}
 	private static void analyseResponses(byte[] message) {
+		for(int i=0; i<message.length; i++) System.out.println("Byte "+i+ " is: "+(char)message[i]);
+		
 		short type = Datagram.getQT(message);
 		int typePosition = afterAnswerName(message);
 		//Probably should have made an int to short function
@@ -27,7 +29,6 @@ public class Response {
 				+(message[typePosition++]<<8)+(message[typePosition])); //int is only 31 bits positive
 		int rLength = (int) ((message[typePosition++]<<8)+ message[typePosition++]);
 		byte[] rData = new byte[rLength];
-		
 		int rDataPointer = 0;
 		for(int i = typePosition; i<(typePosition+rLength); i++){
 			rData[rDataPointer++] = message[i];
@@ -40,15 +41,19 @@ public class Response {
 			ARecordResults(rData, TTL, authoratative);
 			break;
 		case Datagram.MX:
-			MXRecordResults(rData, authoratative);
+			MXRecordResults(rData, TTL, authoratative);
 			break;
 		case Datagram.NS:
 			NSRecordResults(rData, TTL, authoratative);
+			break;
+		case 0x0005: //Cname
+			CNAMEResults(rData, TTL, authoratative);
 			break;
 		}
 		
 	}
 	private static void ARecordResults(byte[] message, long cacheTime, boolean auth) {
+		
 		//message is the IP addr
 		System.out.print(String.format("IP\t%i.%i.%i.%i\t%i\t",
 				message[0],message[1],message[2],message[3], cacheTime));
@@ -162,8 +167,8 @@ public class Response {
 	}
 	public static void noResponseReceived(byte[] ip, int retry, int timeout){
 		System.out.println(String.format(
-				"This client was unable to receive a response from %i.%i.%i.%i after %i attempts\n"
-				+ "Consider adjusting the timeout [-t] to some value greater than %i"
+				"This client was unable to receive a response from %d.%d.%d.%d after %d attempts\n"
+				+ "Consider adjusting the timeout [-t] to some value greater than %d"
 						, ip[0], ip[1], ip[2], ip[3]
 						, retry, timeout));
 	}

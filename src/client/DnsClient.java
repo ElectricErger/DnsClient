@@ -74,7 +74,7 @@ public class DnsClient {
 		int ip3 = Integer.parseInt(ipSegments[2]);
 		int ip4 = Integer.parseInt(ipSegments[3]);
 		
-		return ip1<<(8*3) + ip2<<(8*2) + ip3<<(8*1) + ip4<<(8*0);
+		return (ip1<<(8*3)) + (ip2<<(8*2)) + (ip3<<(8*1)) + (ip4<<(8*0));
 	}
 	public static byte[] intTo4ByteArray(int i){
 		return new byte[]{
@@ -102,18 +102,20 @@ public class DnsClient {
 	public static void launchQuery(Map<String, Comparable> params){
 		//Get raw data in easy forms
 		short queryType = ParameterScanner.getQueryType(params);
-		int ipInBits = (int) params.get(ParameterScanner.SERVER);
+		String ipWithAt = (String)params.get(ParameterScanner.SERVER);
+		int ipInBits = 0;
+		try {ipInBits = ipAddressToBytes(ipWithAt.substring(1)); }
+		catch (Exception e1) { System.out.println("This won't happen"); }
 		int port = (int) params.get(ParameterScanner.PORT);
 		
 		//Get network objects
 		DatagramSocket socket = null;
 		InetAddress addr;
 		DatagramPacket toServer = null;
+		Datagram d = new Datagram((String) params.get(ParameterScanner.REQUEST), queryType);
 		//For the return object
 		byte[] response = new byte[100];
 		DatagramPacket fromServer = new DatagramPacket(response, response.length);
-		//Make datagram
-		Datagram d = new Datagram((String) params.get(ParameterScanner.REQUEST), queryType);
 
 		//Prep for transition states
 		boolean responseReceived = false;
@@ -128,7 +130,6 @@ public class DnsClient {
 			toServer = d.compileDatagram(addr, port);
 			
 			
-			//STANDARD OUTPUT
 			String rT = "A";
 			switch(d.getQueryType()){
 			case Datagram.MX:
@@ -141,8 +142,9 @@ public class DnsClient {
 				rT = "A";
 			}
 			
+			//STANDARD OUTPUT
 			System.out.println("DnsClient sending request for "+ params.get(ParameterScanner.REQUEST));
-			System.out.println(String.format("Server: %i.%i.%i.%i",ipAddr[0],ipAddr[1],ipAddr[2],ipAddr[3]));
+			System.out.println(String.format("Server: %d.%d.%d.%d",ipAddr[0],ipAddr[1],ipAddr[2],ipAddr[3]));
 			System.out.println("Request type: " + rT);
 			
 			
@@ -158,7 +160,7 @@ public class DnsClient {
 						socket.receive(fromServer);
 						
 						//STANDARD OUTPUT
-						System.out.println(String.format("Response received after %i seconds (%i retries)"
+						System.out.println(String.format("Response received after %d seconds (%d retries)"
 								,(System.currentTimeMillis()-startTime)/1000, retries));
 						
 						retries = (int) params.get(ParameterScanner.RETRY);
