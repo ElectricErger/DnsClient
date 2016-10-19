@@ -55,12 +55,11 @@ public class DnsClient {
 	private static void printBadParam(IllegalParameter e){
 		System.out.println(
 				String.format("One of your parameters %s, was not identified. \n"
-						+ "Review your request again. If the system fails again."
+						+ "Review your request again. If the system fails again. "
 						+ "Talk to the creators", e.getMessage()));
 	}
 	private static void printBadType(IllegalType e){
-		//TODO Illegal type error
-		System.out.println("");
+		System.out.println(e.getMessage());
 	}
 	
 	

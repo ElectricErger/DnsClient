@@ -25,22 +25,30 @@ public class ParameterScanner {
 		parsed.put(TIMEOUT, DEFAULT_TIMEOUT);
 		parsed.put(RETRY, DEFAULT_RETRY);
 		parsed.put(PORT, DEFAULT_PORT);
+		parsed.put(MX, false);
+		parsed.put(NS, false);
+		
 		
 		for(int i=0; i<raw.length; i++){
-			
-			//Flag or Parameter
-			if(raw[i].charAt(0)=='-'){
-				if(raw[i] == "-h"){	parsed.put(HELP, true); }
-				else if(raw[i] == "-t"){ parsed.put(TIMEOUT, raw[++i]); } //Will overwrite the default
-				else if(raw[i] == "-r"){ parsed.put(RETRY, raw[++i]); }
-				else if(raw[i] == "-p"){ parsed.put(PORT , raw[++i]);}
-				else if(raw[i] == "-mx"){ parsed.put(MX, true); }
-				else if(raw[i] == "-ns"){ parsed.put(NS, true); }
-				else { throw new IllegalParameter(raw[i]); }
-			} else {
-				parsed.put(SERVER, raw[i++]);
-				parsed.put(REQUEST, raw[i++]);
+			try{
+				//Flag or Parameter
+				if(raw[i].charAt(0)=='-'){				
+					if(raw[i] == "-h"){	parsed.put(HELP, true); }
+					else if(raw[i].equals("-t")){ parsed.put(TIMEOUT, Integer.parseInt(raw[++i]));} //Will overwrite the default
+					else if(raw[i].equals("-r")){ parsed.put(RETRY, Integer.parseInt(raw[++i])); }
+					else if(raw[i].equals("-p")){ parsed.put(PORT, Integer.parseInt(raw[++i]));}
+					else if(raw[i].equals("-mx")){ parsed.put(MX, true); }
+					else if(raw[i].equals("-ns")){ parsed.put(NS, true); }
+					else { throw new IllegalParameter(raw[i]); } //Um...
+				} else {
+					parsed.put(SERVER, raw[i++]);
+					parsed.put(REQUEST, raw[i++]);
+				}
+			}catch(Exception e){
+				System.out.println("Your input is invalid for "+ raw[i]);
+				System.exit(1);
 			}
+
 		}
 		return parsed;
 	}
@@ -76,7 +84,7 @@ public class ParameterScanner {
 			throw new IllegalType(i + " is not an integer");
 		}
 	}
-	private static void verifyServer(String server) throws Exception {		
+	private static void verifyServer(String server) throws Exception {
 		server = server.substring(1, server.length());
 		int ipBytes = ipAddressToBytes(server);
 		
@@ -139,9 +147,9 @@ public class ParameterScanner {
 	//Public helper functions
 	public static short getQueryType(@SuppressWarnings("rawtypes") Map<String, Comparable> params){
 		short queryType = Datagram.A;
-		if(params.get(MX)!=null)
+		if((boolean) params.get(MX))
 			queryType = Datagram.MX;
-		else if(params.get(NS) != null)
+		else if((boolean) params.get(NS))
 			queryType = Datagram.NS;
 		else queryType = Datagram.A;
 		
