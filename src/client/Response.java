@@ -57,9 +57,24 @@ public class Response {
 		else
 			System.out.println("nonauth");		
 	}
-	private static void MXRecordResults(byte[] message, boolean auth) {
+	private static void MXRecordResults(byte[] message, long cacheTime, boolean auth) {
 		// TODO Auto-generated method stub
-		System.out.print("MX\tALIAS\tPERF\tCACHETIME\tAUTH");
+		//Pref | 16 | want low
+		//Exch | n  | name
+		int pref = (int)((message[0]<<8)+(message[1]));
+		String alias = "";
+		
+		int labelLen = message[2];
+		for(int i=2; i<message.length; i++){
+			if(labelLen!=0){
+				alias+=(char)message[i];
+				labelLen--;
+			} else{
+				labelLen = message[i];
+			}
+		}
+		
+		System.out.print(String.format("MX\t%s\t%i\t%i\t", alias, pref, cacheTime));
 		
 		
 		if(auth)
