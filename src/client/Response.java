@@ -23,7 +23,8 @@ public class Response {
 		//Probably should have made an int to short function
 		short typeAns = (short) ((message[typePosition++]<<8)+ message[typePosition++]);
 		short classData = (short) ((message[typePosition++]<<8)+ message[typePosition++]);
-		typePosition+=4; //Skip TTL
+		long TTL = (long) ((message[typePosition++]<<24)+(message[typePosition++]<<16)
+				+(message[typePosition++]<<8)+(message[typePosition])); //int is only 31 bits positive
 		int rLength = (int) ((message[typePosition++]<<8)+ message[typePosition++]);
 		byte[] rData = new byte[rLength];
 		
@@ -32,30 +33,81 @@ public class Response {
 			rData[rDataPointer++] = message[i];
 		}
 		
+		boolean authoratative = (message[2]&0b00000100) == 0b00000100;
+		
 		switch(type){
 		case Datagram.A:
-			ARecordResults(rData);
+			ARecordResults(rData, TTL, authoratative);
 			break;
 		case Datagram.MX:
-			MXRecordResults(rData);
+			MXRecordResults(rData, authoratative);
 			break;
 		case Datagram.NS:
-			NSRecordResults(rData);
+			NSRecordResults(rData, TTL, authoratative);
 			break;
 		}
 		
 	}
-	private static void ARecordResults(byte[] message) {
-		// TODO Auto-generated method stub
-		
-		
-		
+	private static void ARecordResults(byte[] message, long cacheTime, boolean auth) {
+		//message is the IP addr
+		System.out.print(String.format("IP\t%i.%i.%i.%i\t%i\t",
+				message[0],message[1],message[2],message[3], cacheTime));
+		if(auth)
+			System.out.println("auth");
+		else
+			System.out.println("nonauth");		
 	}
-	private static void MXRecordResults(byte[] message) {
+	private static void MXRecordResults(byte[] message, boolean auth) {
 		// TODO Auto-generated method stub
+		System.out.print("MX\tALIAS\tPERF\tCACHETIME\tAUTH");
+		
+		
+		if(auth)
+			System.out.println("auth");
+		else
+			System.out.println("nonauth");	
 	}
-	private static void NSRecordResults(byte[] message) {
-		// TODO Auto-generated method stub
+	private static void NSRecordResults(byte[] message, long cacheTime, boolean auth) {
+		String alias = "";
+		
+		int labelLen = message[0];
+		for(int i=0; i<message.length; i++){
+			if(labelLen!=0){
+				alias+=(char)message[i];
+				labelLen--;
+			} else{
+				labelLen = message[i];
+			}
+		}
+		
+		
+		System.out.print(String.format(
+				"NS\t%s\t%i\t", alias, cacheTime));
+		if(auth)
+			System.out.println("auth");
+		else
+			System.out.println("nonauth");
+	}
+	private static void CNAMEResults(byte[] message, long cacheTime, boolean auth){
+		String alias = "";
+		
+		int labelLen = message[0];
+		for(int i=0; i<message.length; i++){
+			if(labelLen!=0){
+				alias+=(char)message[i];
+				labelLen--;
+			} else{
+				labelLen = message[i];
+			}
+		}
+		
+		
+		System.out.print(String.format(
+				"CNAME\t%s\t%i\t", alias, cacheTime));
+		if(auth)
+			System.out.println("auth");
+		else
+			System.out.println("nonauth");
 	}
 	
 	//Processing received
